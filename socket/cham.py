@@ -161,6 +161,13 @@ def bytes_to_int(input_bytes):
         int_list.append(int_value)
     return int_list
 
+#byte_to_int
+def bytes_to_int(input_bytes):
+    int_list = []
+    for i in range(0, len(input_bytes), 2):
+        int_value = int.from_bytes(input_bytes[i:i+2], byteorder='big')
+        int_list.append(int_value)
+    return int_list
 
 if __name__ == "__main__":
     mk = [0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x0b0a, 0x0d0c, 0x0f0e]

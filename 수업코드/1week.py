@@ -58,14 +58,15 @@
 
 # print(C)
 
-N = int(input("Enter a number : "))
-l2 = []
-l16 = []
+# N = int(input("Enter a number : "))
+# l2 = []
+# l16 = []
 
-while N != 0:
-    l2.append(N % 2)
-    N = N//2
+# while N != 0:
+#     l2.append(N % 2)
+#     N = N//2
 
+print("hello world")
 
 
 
