@@ -5,27 +5,37 @@ def format_binary_16bit(number):
     formatted_binary = ' '.join([binary_str[i:i+4] for i in range(0, 16, 4)])
     return formatted_binary
 
-def ROL(a, n):
-    return ((a << n) & 0xFFFF) | (a >> (16 - n))
 
-def ROR(a, n):
-    return (a >> n) | (a << (16 - n) & 0xFFFF)
+def ROL(a, n, w):
+    return ((a << n) & ((1 << w) - 1)) | (a >> (w - n))
 
-# number1 = 0b0000111100001111 # 원하는 숫자 입력
-# formatted_output1 = format_binary_16bit(ROL(number1, 4))
-# print(formatted_output1)
+def ROR(a, n, w):
+    return ((a >> n) | (a << (w - n))) & ((1 << w) - 1)
 
-# number2 = 0b0011110011110000
-# formatted_output2 = format_binary_16bit(ROR(number2, 6))
-# print(formatted_output2)
+mk_low = [0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x0b0a, 0x0d0c, 0x0f0e]
+mk_medium = [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c]
+mk_high = [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c, 0xf3f2f1f0, 0xf7f6f5f4, 0xfbfaf9f8, 0xfffefdfc]
+
+pt_low = [0x1100, 0x3322, 0x5544, 0x7766]
+pt_medium = [0x33221100, 0x77665544, 0xbbaa9988, 0xffeeddcc]
+pt_high = [0x33221100, 0x77665544, 0xbbaa9988, 0xffeeddcc]
+
+
+def Cham_security_level(security_level):
+    if security_level == 'low':
+        return 128, 16, 88, mk_low, pt_low
+    elif security_level == 'medium':
+        return 128, 32, 112, mk_medium, pt_medium
+    elif security_level == 'high':
+        return 256, 32, 120, mk_high, pt_high
+
 
 def CHAM_key_schedule(mk, k, w):
-    
     RK = [0] * (2 * (k // w))
 
     for i in range(k // w):
-        RK[i] = mk[i] ^ ROL(mk[i], 1) ^ ROL(mk[i], 8)
-        RK[(i + k // w) ^ 1] = mk[i] ^ ROL(mk[i], 1) ^ ROL(mk[i], 11)
+        RK[i] = mk[i] ^ ROL(mk[i], 1, w) ^ ROL(mk[i], 8, w)
+        RK[(i + (k // w)) ^ 1] = mk[i] ^ ROL(mk[i], 1, w) ^ ROL(mk[i], 11, w)
     
     return RK
 
@@ -33,17 +43,14 @@ def CHAM_Encryption(pt, rk, k, w, r):
     RK_NUM = k // w
     
     for i in range(0, r, 2):
+        
         pt[0] = pt[0] ^ i
         temp = pt[1]
-        temp = ROL(temp,1) ^ rk[i % (2 * RK_NUM)]
-        '''
-        pt[0] = (pt[0] + temp) & 0xFFFF를 해야하는데,
-        워드길이가 16, 32로 바뀔 때 마다 코드를 다시 짜기 힘드니까
-        0xFFFF를 32비트, 64비트에서도 이용할 수 있도록 일반화 해줘야 한다. 
-        이 때 w가 워드길이 16이므로 2^4 -> 왼쪽으로 한 칸씩 밀고 ('1'0000으로 만들기 위해) -1을 하면 FFFF가 나온다.
-        '''
+        temp = ROL(temp,1,w) ^ rk[i % (2 * RK_NUM)]
+
         pt[0] = (pt[0] + temp) & ((1 << w) - 1)
-        pt[0] = ROL(pt[0], 8)
+        pt[0] = ROL(pt[0], 8,w)
+
         temp = pt[0]
 
         pt[0] = pt[1]
@@ -54,9 +61,9 @@ def CHAM_Encryption(pt, rk, k, w, r):
         # 홀수 라운드
         pt[0] = pt[0] ^ (i + 1)
         temp = pt[1]
-        temp = rk[(i + 1) %(2 * RK_NUM)]^ ROL(temp, 8)
+        temp = rk[(i + 1) %(2 * RK_NUM)]^ ROL(temp, 8,w)
         pt[0] = (pt[0] + temp) & ((1 << w) - 1)
-        pt[0] = ROL(pt[0],1)
+        pt[0] = ROL(pt[0],1 ,w)
         temp = pt[0]
 
         pt[0] = pt[1]
@@ -71,9 +78,9 @@ def CHAM_Decryption(ct, rk, k, w, r):
 
     for i in range(r-1 ,0 , -2):
         #홀수라운드
-        ct[3] = ROR(ct[3], 1)
+        ct[3] = ROR(ct[3], 1,w)
         temp = ct[0]
-        temp = ROL(temp, 8) ^ rk[(i) % (2 * num_word)]
+        temp = ROL(temp, 8,w) ^ rk[(i) % (2 * num_word)]
         ct[3] = (ct[3] - temp) & ((1 << w) - 1)
         ct[3] = ct[3] ^ (i)
         
@@ -84,9 +91,9 @@ def CHAM_Decryption(ct, rk, k, w, r):
         ct[0] = temp
 
         #짝수 라운드
-        ct[3] = ROR(ct[3], 8)
+        ct[3] = ROR(ct[3], 8,w)
         temp = ct[0]
-        temp = ROL(temp, 1) ^ rk[(i - 1) % (2 * num_word)]
+        temp = ROL(temp, 1,w) ^ rk[(i - 1) % (2 * num_word)]
         ct[3] = (ct[3] - temp) & ((1 << w) - 1)
         ct[3] = ct[3] ^ (i - 1)
         temp = ct[3]
@@ -98,32 +105,28 @@ def CHAM_Decryption(ct, rk, k, w, r):
 
     return ct
 
-def CHAM_CTR_Encryption(pt, rk, pt_len):
-    ctr = [0x0000, 0x0000,0x0000,0x0000]#카운터 값
-    ct_temp = [0] * 4                   #함수 출력 저장 배열
-    input_temp = [0] * 4                #함수 입력 저장 배열
-    ct = [0] * pt_len                   #암호문 저장 배열
-    pt_block = pt_len //4               #평문의 블록 개수
-    pt_remain = pt_len % 4              #평문의 불록외의 남은 word 수
+def CHAM_CTR_Encryption(pt, rk, pt_len, k, w, r):
+    ctr = [0x0000, 0x0000,0x0000,0x0000]    #카운터 값
+    ct_temp = [0] * 4                       #함수 출력 저장 배열
+    input_temp = [0] * 4                    #함수 입력 저장 배열
+    ct = [0] * pt_len                       #암호문 저장 배열
+    pt_block = pt_len //4                   #평문의 블록 개수
+    pt_remain = pt_len % 4                  #평문의 불록외의 남은 word 수
 
     for i in range(pt_block):
         input_temp = ctr.copy()
-        ct_temp = CHAM_Encryption(input_temp, rk, 128, 16, 88)
+        ct_temp = CHAM_Encryption(input_temp, rk, k, w, r)
         for j in range(4):
             ct[i*4 + j] = ct_temp[j]^pt[4*i + j]
         ctr[0] += 1
     
     input_temp = ctr.copy()
-    ct_temp = CHAM_Encryption(input_temp, rk, 128, 16, 88)
+    ct_temp = CHAM_Encryption(input_temp, rk, k, w, r)
     for j in range(pt_remain):
         ct[4*pt_block + j] = ct_temp[j]^pt[4*pt_block+j]
 
     return ct
 
-
-# 파일 암호화======================================================================
-
-# hex 문자열에서 int 형식으로 변경
 def hex_to_int(input, input_len):
     output = []
     for i in range(0,input_len,4):
@@ -131,7 +134,7 @@ def hex_to_int(input, input_len):
         output.append(temp)
     return output
 
-# int 형식에서 bytes 형식으로 변경하는 함수
+## int 형식에서 bytes 형식으로 변경하는 함수
 def int_to_bytes(input):
     output_byte = b''
     for num in input:
@@ -142,41 +145,30 @@ def int_to_bytes(input):
 #byte_to_int
 def bytes_to_int(input_bytes):
     int_list = []
-    # 2바이트씩 읽어서 int로 변환
     for i in range(0, len(input_bytes), 2):
         int_value = int.from_bytes(input_bytes[i:i+2], byteorder='big')
         int_list.append(int_value)
     return int_list
-
-#byte_to_int
-def bytes_to_int(input_bytes):
-    int_list = []
-    for i in range(0, len(input_bytes), 2):
-        int_value = int.from_bytes(input_bytes[i:i+2], byteorder='big')
-        int_list.append(int_value)
-    return int_list
-
 
 if __name__ == "__main__":
 
-    a = int(input("ㅇ"))
+    security_level = input("CHAM 암호 레벨을 선택하세요. 'low', 'medium', 'high' : ")
 
-    mk = [0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x0b0a, 0x0d0c, 0x0f0e]
-    rk = CHAM_key_schedule(mk, 128, 16)
+    k, w, r, mk, pt = Cham_security_level(security_level)
+    rk = CHAM_key_schedule(mk, k, w)
 
-    pt = [0x1100, 0x3322, 0x5544, 0x7766]
     print("\nplaintext를 출력합니다.")
     for i in pt:
         print(hex(i), end = ',')
     print()
 
-    ct = CHAM_Encryption(pt, rk, 128, 16, 88)
+    ct = CHAM_Encryption(pt, rk, k, w, r)
     print("\nciphertext를 출력합니다.")
     for i in ct:
         print(hex(i), end = ',')
     print()
 
-    pt = CHAM_Decryption(ct, rk, 128, 16, 88)
+    pt = CHAM_Decryption(ct, rk, k, w, r)
     print("\n복호화한 plaintext를 출력합니다.")
     for i in pt:
         print(hex(i), end = ',')
@@ -185,8 +177,19 @@ if __name__ == "__main__":
     print("\nCTR 모드 테스트")
 
     pt2 = [0x1100, 0x3322, 0x5544, 0x7766, 0x9988, 0xbbaa, 0xddcc]
-    ct2 = CHAM_CTR_Encryption(pt2, rk, 7)
+    ct2 = CHAM_CTR_Encryption(pt2, rk, 7, k, w, r)
+    dt2 = CHAM_CTR_Encryption(ct2, rk, 7, k, w, r)
+    
+    print("\nCTR ciphertext를 출력합니다.")
     for i in ct2:
         print(hex(i), end=',')
     print()
+
+    print(f"round key: {rk}")
+
+    print("\n복호화한 CTR plaintext를 출력합니다.")
+    for i in dt2:
+        print(hex(i), end=',')
+    print()
+
 
