@@ -5,6 +5,7 @@ def format_binary_16bit(number):
     formatted_binary = ' '.join([binary_str[i:i+4] for i in range(0, 16, 4)])
     return formatted_binary
 
+
 def ROL(a, n, w):
     return ((a << n) & ((1 << w) - 1)) | (a >> (w - n))
 
@@ -13,12 +14,12 @@ def ROR(a, n, w):
 
 mk_low = [0x0100, 0x0302, 0x0504, 0x0706, 0x0908, 0x0b0a, 0x0d0c, 0x0f0e]
 mk_medium = [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c]
-mk_high = [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c,
-           0xf3f2f1f0, 0xf7f6f5f4, 0xfbfaf9f8, 0xfffefdfc]
+mk_high = [0x03020100, 0x07060504, 0x0b0a0908, 0x0f0e0d0c, 0xf3f2f1f0, 0xf7f6f5f4, 0xfbfaf9f8, 0xfffefdfc]
 
 pt_low = [0x1100, 0x3322, 0x5544, 0x7766]
 pt_medium = [0x33221100, 0x77665544, 0xbbaa9988, 0xffeeddcc]
 pt_high = [0x33221100, 0x77665544, 0xbbaa9988, 0xffeeddcc]
+
 
 def Cham_security_level(security_level):
     if security_level == 'low':
